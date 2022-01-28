@@ -51,6 +51,39 @@ def policy_evaluation(P, nS, nA, policy, gamma=0.9, tol=1e-8):
     value_function = np.zeros(nS)
     ############################
     # YOUR IMPLEMENTATION HERE #
+
+    val_func_change = 1 # loop termination condition
+
+    # Iterate until no significatn changes to the value function
+    while val_func_change > tol:
+
+        val_func_change = 0 # reset loop termination condition
+
+        # Iterate through all states
+        for state in range(nS):
+            v_k = value_function[state] # current value function at iteration k (for current state)
+            v_k_plus_1 = 0 # future value function at iteration k+1 (for current state)
+
+            # Iterate through all the actions (for the current state)
+            for action in range(nA):
+                p_tuples = P[state][action] # p_tuples can contain many tuples if env is stochastic
+
+                # Initialize 2nd half of the Bellman equation product (whereby term_1*term_2 = value function)
+                # I.e., the sum of the product between the transition probability and the sum of the current reward and discounted future returns) in the bellman equation
+                # The 1st half is simply the sum of the policy functions
+                term_2 = 0
+
+                # Iterate through all the next states
+                for tup in p_tuples:
+                    trans_prob, next_state, reward, _ = tup
+                    term_2 += trans_prob * (reward + gamma * value_function[next_state]) # accumulate the later term (in the product); see equation for more info
+
+                v_k_plus_1 += policy[state][action] * term_2
+
+            value_function[state] = v_k_plus_1
+
+            # Adjust termination condition
+            val_func_change = max( abs(v_k_plus_1 - v_k), val_func_change)
     
     ############################
     return value_function
