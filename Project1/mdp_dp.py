@@ -1,5 +1,6 @@
 ### MDP Value Iteration and Policy Iteration
 ### Reference: https://web.stanford.edu/class/cs234/assignment1/index.html 
+from multiprocessing.dummy import current_process
 import numpy as np
 
 np.set_printoptions(precision=3)
@@ -96,7 +97,7 @@ def policy_improvement(P, nS, nA, value_from_policy, gamma=0.9):
     -----------
     P, nS, nA, gamma:
         defined at beginning of file
-    value_from_policy: np.ndarray
+    value_from_policy: np.ndarray[nS]
         The value calculated from the policy
     Returns:
     --------
@@ -106,9 +107,26 @@ def policy_improvement(P, nS, nA, value_from_policy, gamma=0.9):
         given value function.
     """
 
-    new_policy = np.ones([nS, nA]) / nA
+    new_policy = np.zeros([nS, nA])
 	############################
 	# YOUR IMPLEMENTATION HERE #
+
+    # Iterate through all the states
+    for state in range(nS):
+        q = np.zeros(nA) # initialize array of state-action values (q)
+
+        # Iterate through all the actions based on current state
+        for action in range(nA):
+            p_tuples = P[state][action]
+
+            # Iterate through all the next states based on current state
+            for tup in p_tuples:
+                trans_prob, next_state, reward, _ = tup
+
+                q[action] += trans_prob * ( reward + gamma * value_from_policy[next_state] ) # accumulate the state-action value for current action and state
+
+        # Assign new policy probability for action with highest state-action value
+        new_policy[state][np.argmax(q)] = 1.0
 
 	############################
     return new_policy
@@ -135,6 +153,23 @@ def policy_iteration(P, nS, nA, policy, gamma=0.9, tol=1e-8):
     new_policy = policy.copy()
 	############################
 	# YOUR IMPLEMENTATION HERE #
+
+    policy_stable = False
+    current_value_func = np.zeros(nS)
+
+    # Iterate until policy stops improving
+    while not policy_stable:
+
+        current_value_func = policy_evaluation(P, nS, nA, policy, gamma, tol) # compute value function for current policy
+        new_policy = policy_improvement(P, nS, nA, current_value_func, gamma) # improve policy based on computed value function
+
+        # Check if there are updates to new_policy
+        if np.allclose(new_policy, policy):
+            policy_stable = True
+        else:
+            policy = new_policy
+
+    V = current_value_func # assign the last computed value function
 
 	############################
     return new_policy, V
