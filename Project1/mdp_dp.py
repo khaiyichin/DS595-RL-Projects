@@ -55,7 +55,7 @@ def policy_evaluation(P, nS, nA, policy, gamma=0.9, tol=1e-8):
 
     val_func_change = 1 # loop termination condition
 
-    # Iterate until no significatn changes to the value function
+    # Iterate until no significant changes to the value function
     while val_func_change > tol:
 
         val_func_change = 0 # reset loop termination condition
@@ -183,7 +183,8 @@ def value_iteration(P, nS, nA, V, gamma=0.9, tol=1e-8):
     ----------
     P, nS, nA, gamma:
         defined at beginning of file
-    V: value to be updated
+    V: np.ndarray[nS]
+        value to be updated
     tol: float
         Terminate value iteration when
             max |value_function(s) - prev_value_function(s)| < tol
@@ -196,6 +197,42 @@ def value_iteration(P, nS, nA, V, gamma=0.9, tol=1e-8):
     V_new = V.copy()
     ############################
     # YOUR IMPLEMENTATION HERE #
+
+    # Initialize policy and optimal action arrays
+    policy_new = np.zeros([nS, nA])
+    action_optimal = np.zeros(nS, dtype=int)
+
+    val_func_change = 1 # loop termination condition
+
+    # Iterate until no significant changes to the value function
+    while val_func_change > tol:
+
+        val_func_change = 0
+
+        # Iterate through all the states
+        for state in range(nS):
+            v_k = V_new[state]
+            v_k_plus_1_candidates = np.zeros(nA) # potential future value function at iteration k+1 (for current state)
+
+            # Iterate through all the actions (for the current state)
+            for action in range(nA):
+                p_tuples = P[state][action]
+
+                # Iterate through all the next states
+                for tup in p_tuples:
+                    trans_prob, next_state, reward, _ = tup
+                    v_k_plus_1_candidates[action] += trans_prob * (reward + gamma * V_new[next_state]) # accumulate the value for the potential value function based on all the next states and rewards
+
+            # Obtain the maximum valued action and store the value as well
+            action_optimal[state] = np.argmax(v_k_plus_1_candidates)
+            V_new[state] = v_k_plus_1_candidates[action_optimal[state]]
+
+            # Adjust termination condition by updating max change in function value
+            val_func_change = max( abs(v_k - V_new[state]), val_func_change )
+
+    # Assign the new policy probabilities based on the optimal actions
+    for s in range(nS):
+        policy_new[s][action_optimal[s]] = 1.0
 
     ############################
     return policy_new, V_new
@@ -227,6 +264,14 @@ def render_single(env, policy, render = False, n_episodes=100):
                 env.render() # render the game
             ############################
             # YOUR IMPLEMENTATION HERE #
+
+            action = np.argmax(policy[ob]) # pick the highest valued action based on the state observation
+
+            ob, r, done, _ = env.step(action) # run through 1 timestep
+
+        total_rewards += r # reward is only given at the end of the game, so only after the while loop terminates
+
+            ############################
             
     return total_rewards
 
