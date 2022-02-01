@@ -259,6 +259,7 @@ def render_single(env, policy, render = False, n_episodes=100):
     for _ in range(n_episodes):
         ob = env.reset() # initialize the episode
         done = False
+        r = 0
         while not done:
             if render:
                 env.render() # render the game
