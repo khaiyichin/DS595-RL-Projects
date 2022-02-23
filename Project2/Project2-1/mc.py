@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+from logging import error
 import numpy as np
 import random
 from collections import defaultdict
@@ -33,7 +34,11 @@ def initial_policy(observation):
     # YOUR IMPLEMENTATION HERE #
     # get parameters from observation
     score, dealer_score, usable_ace = observation
-    # action
+    action = None
+    if score >= 20:
+        action = 0
+
+    else: action = 1
 
     ############################
     return action
@@ -68,38 +73,56 @@ def mc_prediction(policy, env, n_episodes, gamma = 1.0):
     ############################
     # YOUR IMPLEMENTATION HERE #
     # loop each episode
+    for i in range(n_episodes):
 
         # initialize the episode
+        observation = env.reset()
+        done = False
 
         # generate empty episode list
+        # episode = [observation]
+        episode = []
 
         # loop until episode generation is done
-
+        while not done:
 
             # select an action
+            action = policy(observation)
+
+            episode.append(observation)
 
             # return a reward and new state
+            observation, reward, done, _ = env.step(action)
 
             # append state, action, reward to episode
+            episode.extend( [action, reward] )
 
-            # update state to new state
+        reward_ind = 2
+        G = 0
 
+        # Obtain the total number of steps taken in the current episode
+        num_steps = int(len(episode) / 3)
 
+        # loop for each step of episode, t = T-1, T-2,...,0        
+        for step in range(num_steps - 1, -1, -1):
 
+            # Compute the return from current step, G
+            G = gamma * G + episode[3*step + 2] # the reward is the 3rd element in each step
 
-        # loop for each step of episode, t = T-1, T-2,...,0
+            # Extract state for current step
+            state = episode[3*step]
 
-            # compute G
-
-            # unless state_t appears in states
+            # Check if state has occurred in earlier steps (or if it's the earliest step)
+            if state not in episode[0:3*(step-1)] or step == 0:
 
                 # update return_count
+                returns_count[state] += 1
 
                 # update return_sum
+                returns_sum[state] += G 
 
                 # calculate average return for this state over all sampled episodes
-
-
+                V[state] = returns_sum[state] / returns_count[state]
 
     ############################
 
@@ -132,8 +155,17 @@ def epsilon_greedy(Q, state, nA, epsilon = 0.1):
     ############################
     # YOUR IMPLEMENTATION HERE #
 
+    # Find action with highest Q score and separate from remaining actions
+    # max_action = np.random.choice( np.flatnonzero( Q[state] == Q[state].max() ) ) # useful for breaking ties with equal probability
+    max_action = np.argmax(Q[state]) # only choosing the first value if tied
+    rem_action = [a for a in range(len(Q[state])) if a != max_action]
 
+    # Compute probability for maximum action using epsilon greedy heuristic
+    max_action_prob = 1 - epsilon + epsilon/nA
 
+    # Draw action
+    if np.random.uniform() > max_action_prob: action = np.random.choice(rem_action)
+    else: action = max_action
 
     ############################
     return action
@@ -171,8 +203,10 @@ def mc_control_epsilon_greedy(env, n_episodes, gamma = 1.0, epsilon = 0.1):
 
     ############################
     # YOUR IMPLEMENTATION HERE #
+    # while 
 
         # define decaying epsilon
+        # epsilon = 1
 
 
 
