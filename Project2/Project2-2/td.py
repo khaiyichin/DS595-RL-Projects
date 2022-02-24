@@ -41,9 +41,16 @@ def epsilon_greedy(Q, state, nA, epsilon = 0.1):
     ############################
     # YOUR IMPLEMENTATION HERE #
 
+    # Find action with highest Q score and separate from remaining actions
+    max_action = np.argmax(Q[state]) # only choosing the first value if tied
+    rem_action = [a for a in range(len(Q[state])) if a != max_action]
 
+    # Compute probability for maximum action using epsilon greedy heuristic
+    max_action_prob = 1 - epsilon + epsilon/nA
 
-
+    # Draw action
+    if np.random.uniform() > max_action_prob: action = np.random.choice(rem_action)
+    else: action = max_action
 
     ############################
     return action
@@ -80,34 +87,43 @@ def sarsa(env, n_episodes, gamma=1.0, alpha=0.5, epsilon=0.1):
     ############################
     # YOUR IMPLEMENTATION HERE #
     
-    # loop n_episodes
+    # Iterate for n_episodes
+    for _ in range(n_episodes):
 
-        # define decaying epsilon
+        # Define a decaying epsilon value
+        epsilon = 0.99*epsilon
 
-
-        # initialize the environment 
-
+        # Initialize the environment
+        observation = env.reset()
+        done = False
         
-        # get an action from policy
+        # Get an action from the epsilon_greedy policy
+        action = epsilon_greedy(Q, observation, env.action_space.n, epsilon)
 
-        # loop for each step of episode
+        # Iterate until termination condition reached (game ends)
+        while not done:
 
-            # return a new state, reward and done
+            # Execute one step in the environment by taking an action
+            next_observation, reward, done, _ = env.step(action)
 
-            # get next action
+            # Get another action from the epsilon_greedy policy
+            next_action = epsilon_greedy(Q, next_observation, env.action_space.n, epsilon)
 
-            
             # TD update
             # td_target
+            target = reward + gamma*Q[next_observation][next_action]
 
             # td_error
+            error = target - Q[observation][action]
 
-            # new Q
+            # Update Q
+            Q[observation][action] = Q[observation][action] + alpha*error
 
-            
-            # update state
+            # Update state
+            observation = next_observation
 
-            # update action
+            # Update action
+            action = next_action
 
     ############################
     return Q
@@ -140,25 +156,37 @@ def q_learning(env, n_episodes, gamma=1.0, alpha=0.5, epsilon=0.1):
     ############################
     # YOUR IMPLEMENTATION HERE #
     
-    # loop n_episodes
+    # Iterate for n_episodes
+    for _ in range(n_episodes):
 
-        # initialize the environment 
+        # Define a decaying epsilon value
+        epsilon = 0.99*epsilon
 
+        # Initialize the environment
+        observation = env.reset()
+        done = False
         
-        # loop for each step of episode
+        # Iterate until termination condition reached (game ends)
+        while not done:
 
-            # get an action from policy
+            # Get an action from the epsilon_greedy policy
+            action = epsilon_greedy(Q, observation, env.action_space.n, epsilon)
             
-            # return a new state, reward and done
+            # Execute one step in the environment by taking an action
+            next_observation, reward, done, _ = env.step(action)
             
             # TD update
             # td_target with best Q
+            target = reward + gamma*max(Q[next_observation])
 
             # td_error
+            error = target - Q[observation][action]
 
-            # new Q
+            # Update Q
+            Q[observation][action] = Q[observation][action] + alpha*error
             
             # update state
+            observation = next_observation
 
     ############################
     return Q
