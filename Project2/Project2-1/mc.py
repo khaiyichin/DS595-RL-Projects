@@ -74,39 +74,35 @@ def mc_prediction(policy, env, n_episodes, gamma = 1.0):
 
     ############################
     # YOUR IMPLEMENTATION HERE #
-    # loop each episode
-    for i in range(n_episodes):
+    # Iterate for n_episodes
+    for _ in range(n_episodes):
 
-        # initialize the episode
+        # Initialize the environment and episode list
         observation = env.reset()
         done = False
-
-        # generate empty episode list
-        # episode = [observation]
         episode = []
 
-        # loop until episode generation is done
+        # Iterate until termination condition reached (game ends)
         while not done:
 
-            # select an action
+            # Select an action based on the given policy
             action = policy(observation)
 
-            # episode.append(observation)
+            # Record the state and action
             episode.extend([observation, action])
 
-            # return a reward and new state
+            # Execute one step in the environment by taking an action
             observation, reward, done, _ = env.step(action)
 
-            # append state, action, reward to episode
+            # Record the reward obtained from the action
             episode.append(reward)
-            # episode.extend( [action, reward] )
 
         G = 0 # initial return
 
         # Obtain the total number of steps taken in the current episode
         num_steps = int(len(episode) / 3)
 
-        # loop for each step of episode, t = T-1, T-2,...,0        
+        # Iterate for each step in the recorded sample starting from the back
         for step in range(num_steps-1, -1, -1):
 
             # Compute the return from current step, G
@@ -118,13 +114,11 @@ def mc_prediction(policy, env, n_episodes, gamma = 1.0):
             # Check if state has occurred in earlier steps (or if it's the earliest step)
             if state not in episode[0:3*(step-1)] or step == 0:
 
-                # update return_count
+                # Update returns
                 returns_count[state] += 1
-
-                # update return_sum
                 returns_sum[state] += G 
 
-                # calculate average return for this state over all sampled episodes
+                # Calculate average return for this state over all sampled episodes
                 V[state] = returns_sum[state] / returns_count[state]
 
     ############################
@@ -206,66 +200,60 @@ def mc_control_epsilon_greedy(env, n_episodes, gamma = 1.0, epsilon = 0.1):
 
     ############################
     # YOUR IMPLEMENTATION HERE #
-    for i in range(n_episodes):
+
+    # Iterate for n_episodes
+    for _ in range(n_episodes):
 
         # define decaying epsilon
         epsilon = epsilon - (0.1/n_episodes)
 
-        # initialize the episode
+        # Initialize the environment and episode list
         observation = env.reset()
         done = False
-
-        # generate empty episode list
         episode = []
 
-        # loop until one episode generation is done
+        # Iterate until termination condition reached (game ends)
         while not done:
 
-            # get an action from epsilon greedy policy
+            # Get an action from the epsilon_greedy policy
             action = epsilon_greedy(Q, observation, env.action_space.n, epsilon)
 
+            # Record the state and action
             episode.extend([observation, action])
 
-            # return a reward and new state
+            # Execute one step in the environment by taking an action
             observation, reward, done, _ = env.step(action)
 
-            # append state, action, reward to episode
+            # Record the reward obtained from the action
             episode.append(reward)
-
-            # update state to new state
 
         G = 0 # initial return
 
         # Obtain the total number of steps taken in the current episode
         num_steps = int(len(episode) / 3)
 
-        # loop for each step of episode, t = T-1, T-2, ...,0
+        # Iterate for each step in the recorded sample starting from the back
         for step in range(num_steps-1, -1, -1):
 
-            # compute G
+            # Compute the return from current step, G
             G = gamma * G + episode[3*step + 2] # the reward is the 3rd element in each step
 
-            # unless the pair state_t, action_t appears in <state action> pair list
+            # Extract state action pair
             state = episode[3*step]
             action = episode[3*step+1]
             state_action_pair = (state, action)
 
+            # Define list of remaining state action pairs
             state_action_hist = [(episode[3*s], episode[3*s+1]) for s in range(step)]
 
-            # print(state_action_pair, state_action_hist, episode)
-
+            # Check if state action pair has occurred in earlier steps
             if state_action_pair not in state_action_hist:
 
-                # update return_count
+                # Update returns
                 returns_count[state_action_pair] += 1
-
-                # update return_sum
                 returns_sum[state_action_pair] += G
 
-                # calculate average return for this state over all sampled episodes
+                # Calculate average return for this state action pair over all sampled episodes
                 Q[state][action] = returns_sum[state_action_pair] / returns_count[state_action_pair]
-
-        # print(Q)
-        # raise error()
 
     return Q
