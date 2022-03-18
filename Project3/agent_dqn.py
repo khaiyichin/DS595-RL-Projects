@@ -21,8 +21,8 @@ np.random.seed(595)
 random.seed(595)
 
 # Default values (inspired by the Nature paper)
-BATCH_SIZE = 8 # should be 32
-REPLAY_BUFFER_SIZE = int(1e2) # should be 1e5
+BATCH_SIZE = 32 # should be 32
+REPLAY_BUFFER_SIZE = int(1e5) # should be 1e5
 REWARD_BUFFER_SIZE = 30 # units of episodes
 TARGET_Q_NET_UPDATE_PERIOD = int(5e3)
 GAMMA = 0.99
@@ -30,8 +30,8 @@ LEARN_RATE = 5e-4
 EPSILON_INITIAL = 1.0
 EPSILON_FINAL = 1e-3
 EPSILON_DECAY_DURATION = int(1e4)
-LOG_PERIOD = int(1e2)
-SAVE_INTERVAL = int(1e2) # try 1e5?
+LOG_PERIOD = int(1e4)
+SAVE_INTERVAL = int(1e5) # try 1e5?
 MODEL_SAVE_PATH_0 = './dqn_vanilla_0.pth'
 MODEL_SAVE_PATH_1 = './dqn_vanilla_1.pth'
 ANALYTICS_SAVE_PATH = './analytics.csv'
@@ -61,6 +61,9 @@ Steps:
 1. deal with args: where do we get them from, what should it contain?
 2. load/save models.
 3. parallel training.
+4. add logs to check if:
+    - gpu is used
+    - how many episodes...?
 """
 
 class Agent_DQN(Agent):
