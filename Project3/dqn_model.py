@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import torch
+import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -15,7 +17,7 @@ class DQN(nn.Module):
     This is just a hint. You can build your own structure.
     """
 
-    def __init__(self, in_channels=4, num_actions=4):
+    def __init__(self, gamma, in_channels=4, num_actions=4):
         """
         Parameters:
         -----------
@@ -33,6 +35,9 @@ class DQN(nn.Module):
 
         # @todos: allow parameter changes..?
 
+        # Define variables for input arguments
+        self.gamma = gamma
+
         self.in_channels = in_channels
         self.num_actions = num_actions
 
@@ -40,7 +45,7 @@ class DQN(nn.Module):
         self.pool = nn.MaxPool2d(2, 2) # shrink the 2d image by a factor of 0.5
         self.conv_1 = nn.Conv2d(self.in_channels, 32, kernel_size=8, stride=4)
         self.conv_2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        self.conv_3 = nn.Conv2d(64, 64, kernel=3, stride=1)
+        self.conv_3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
         self.fc_1 = nn.Linear(64 * 7 * 7, 512)
         self.output_layer = nn.Linear(512, self.num_actions)
 
@@ -53,7 +58,10 @@ class DQN(nn.Module):
         ###########################
         # YOUR IMPLEMENTATION HERE #
 
-        """
+        """Execute a forward propagation step for the neural network.
+
+        Args:
+            x: An observation in the form of a (4, 84, 84) tensor.
         """
 
         # Go through literature to find good DQN structure
@@ -68,7 +76,26 @@ class DQN(nn.Module):
         ###########################
         return x
 
-    def update_weights(self):
-        pass
+    def compute_loss(self, tensor_lst, target_network, criterion):
+        """Computes loss between target-Q function and current Q-function.
 
-# maintain 2 networks: 1 training network (get Q values) and 1 target network (fix Q temporarily)
+        Args:
+            tensor_lst: A list of 5 tensors - current states, current actions, current rewards,
+                terminal state booleans, and next states.
+
+        Returns:
+            Loss values in the form of a PyTorch tensor.
+        """
+        obs, act, rew, done, next_obs = tensor_lst
+
+        # Compute targets
+        next_state_target_q_vals = target_network(next_obs)
+        max_target_q_vals = next_state_target_q_vals.max(dim=1, keepdim=True)[0]
+        target_q_vals = rew + self.gamma*(1-done)*max_target_q_vals # condensed piecewise function from the Nature paper
+
+        # Compute Q-values based on actual actions
+        q_vals = self(obs) # size of 32 x 4
+        actual_q_vals = torch.gather(input=q_vals, dim=1, index=act) # based on actual actions took
+
+        # Compute loss between the new Q-value and the updated Q-value
+        return criterion(actual_q_vals, target_q_vals)
