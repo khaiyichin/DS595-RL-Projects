@@ -31,11 +31,11 @@ EPSILON_INITIAL = 1.0
 EPSILON_FINAL = 1e-3
 EPSILON_DECAY_DURATION = int(1e4)
 LOG_PERIOD = int(1e4)
-SAVE_INTERVAL = int(1e5) # try 1e5?
+SAVE_INTERVAL = int(1e3) # try 1e4?
 MODEL_SAVE_PATH_0 = './dqn_vanilla_0.pth'
 MODEL_SAVE_PATH_1 = './dqn_vanilla_1.pth'
 ANALYTICS_SAVE_PATH = './analytics.csv'
-MODEL_LOAD_PATH='./dqn_vanilla.pth'
+MODEL_LOAD_PATH = './dqn_vanilla.pth'
 """
 Steps:
 
@@ -93,6 +93,11 @@ class Agent_DQN(Agent):
 
         # Prioritize GPU training
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+        # Write device type
+        with open ("DEVICE", "w") as device_file:
+            device_str = str(self.device)
+            device_file.write(device_str)
         
         # Check to test or load
         if args.test_dqn:
@@ -356,7 +361,8 @@ class Agent_DQN(Agent):
 
         # Check if it's just a single frame or minibatch
         if len(obs.shape) == 3:
-            obs = torch.as_tensor(obs, device=self.device).unsqueeze(0)
+            # obs = torch.as_tensor(obs, device=self.device).unsqueeze(0) # change to numpy array!
+            obs = np.expand_dims(obs, axis=0)
 
         obs = np.array(obs).transpose(0, 3, 1, 2) # flip dimensions
         obs = torch.tensor(obs/255.0, dtype=torch.float32, device=self.device) # force values to be between 0 and 1, and of float32 type (default type)
@@ -387,5 +393,5 @@ class Agent_DQN(Agent):
         # Write to file then clear buffer
         with open (self.analytics_filename, "a") as a_file:
             str_lst = [str(i) + "\n" for i in self.avg_30_reward_lst]
-            a_file.writelines(str_lst)            
+            a_file.writelines(str_lst)
             self.avg_30_reward_lst = []

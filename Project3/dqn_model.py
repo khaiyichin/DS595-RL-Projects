@@ -69,7 +69,7 @@ class DQN(nn.Module):
         x = F.relu(self.conv_1(x)) # 84x84x4 -> 20x20x32
         x = F.relu(self.conv_2(x)) # 20x20x32 -> 9x9x64
         x = F.relu(self.conv_3(x)) # 9x9x64 -> 7x7x64
-        x = x.view(-1, 64 * 7 * 7)
+        x = x.reshape(-1, 64 * 7 * 7)
         x = F.relu(self.fc_1(x))
         x = self.output_layer(x)
 
