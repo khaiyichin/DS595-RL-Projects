@@ -356,10 +356,10 @@ class Agent_DQN(Agent):
 
         # Check if it's just a single frame or minibatch
         if len(obs.shape) == 3:
-            obs = torch.as_tensor(obs).unsqueeze(0)
+            obs = torch.as_tensor(obs, device=self.device).unsqueeze(0)
 
         obs = np.array(obs).transpose(0, 3, 1, 2) # flip dimensions
-        obs = torch.tensor(obs/255.0, dtype=torch.float32) # force values to be between 0 and 1, and of float32 type (default type)
+        obs = torch.tensor(obs/255.0, dtype=torch.float32, device=self.device) # force values to be between 0 and 1, and of float32 type (default type)
 
         return obs
 
