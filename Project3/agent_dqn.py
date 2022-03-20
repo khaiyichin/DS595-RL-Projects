@@ -109,6 +109,7 @@ class Agent_DQN(Agent):
             self.initialize_network(loaded_state_dicts)
 
         elif args.resume_training:
+            if self.logging_enabled: print("\nResuming training.\n")
             loaded_state_dicts = self.load_model()
             self.initialize_network(loaded_state_dicts)
 
