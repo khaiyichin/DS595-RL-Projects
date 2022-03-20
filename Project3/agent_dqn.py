@@ -30,7 +30,7 @@ LEARN_RATE = 5e-4
 EPSILON_INITIAL = 1.0
 EPSILON_FINAL = 1e-3
 EPSILON_DECAY_DURATION = int(1e4)
-LOG_PERIOD = int(1e4)
+LOG_PERIOD = int(1e5)
 SAVE_INTERVAL = int(1e3) # try 1e4?
 MODEL_SAVE_PATH_0 = './dqn_vanilla_0.pth'
 MODEL_SAVE_PATH_1 = './dqn_vanilla_1.pth'
@@ -109,7 +109,9 @@ class Agent_DQN(Agent):
             self.initialize_network(loaded_state_dicts)
 
         elif args.resume_training:
-            if self.logging_enabled: print("\nResuming training.\n")
+            if self.logging_enabled:
+                print("\nResuming training.\n")
+                sys.stdout.flush()
             loaded_state_dicts = self.load_model()
             self.initialize_network(loaded_state_dicts)
 
@@ -169,7 +171,9 @@ class Agent_DQN(Agent):
         """Fill up the replay buffer.
         """
 
-        if self.logging_enabled: print('Initializing replay buffer...', end='')
+        if self.logging_enabled:
+            print('Initializing replay buffer...', end='')
+            sys.stdout.flush()
 
         # Start the environment
         observation = self.env.reset()
@@ -188,7 +192,9 @@ class Agent_DQN(Agent):
             if done: observation = self.env.reset()
             else: observation = next_observation
 
-        if self.logging_enabled: print('Done!\n')
+        if self.logging_enabled:
+            print('Done!\n')
+            sys.stdout.flush()
 
     def make_action(self, observation, test=True):
         """
@@ -255,7 +261,6 @@ class Agent_DQN(Agent):
 
         # Main training loop
         observation = self.env.reset()
-        episode_reward = 0.0
         episode_counter = 1
 
         # Run the episode for as long as we can
@@ -264,7 +269,12 @@ class Agent_DQN(Agent):
             # Adjust epsilon to modify tendency for exploration vs exploitation
             epsilon = np.interp(episode_counter-1, [0, EPSILON_DECAY_DURATION], [EPSILON_INITIAL, EPSILON_FINAL])
 
-            for _ in range(5): # only 5 lives
+            episode_reward = 0.0
+
+            # Play the game until all lives are used up
+            lives_counter = 5 # only 5 lives
+
+            while lives_counter > 0:
 
                 # Select epsilon-greedy action
                 if np.random.rand() <= epsilon:
@@ -284,8 +294,7 @@ class Agent_DQN(Agent):
 
                 if done:
                     observation = self.env.reset()
-                    self.reward_buffer_deque.append(episode_reward)
-                    episode_reward = 0.0
+                    lives_counter -= 1
                 else: observation = next_observation
 
                 """
@@ -323,6 +332,8 @@ class Agent_DQN(Agent):
                 loss.backward() # backpropogate weights                
                 torch.nn.utils.clip_grad_value_(self.training_nn.parameters(), 1) # clip gradients                
                 self.optimizer.step()
+            
+            self.reward_buffer_deque.append(episode_reward) # accumulate all rewards in one life
 
             # Update target network parameters to 'catch up'
             if episode_counter % TARGET_Q_NET_UPDATE_PERIOD == 0:
@@ -337,7 +348,7 @@ class Agent_DQN(Agent):
             if episode_counter % LOG_PERIOD == 0 and self.logging_enabled:
                 print("Episode:", episode_counter)
                 print("Last 30-episode averaged reward:", self.most_recent_avg_30_reward) # @todo: is this right? it only computes the mean for the length of available rewards...
-                # print("Average reward:", np.mean(self.reward_buffer_arr))
+                sys.stdout.flush()
 
             # Save data every interval
             if episode_counter % SAVE_INTERVAL == 0:
