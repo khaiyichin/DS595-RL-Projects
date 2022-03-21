@@ -2,3 +2,7 @@ __pycache__/
 .vscode/
 .venv/
 *.zip
+DEVICE
+*.pth
+*.yaml
+*.csv

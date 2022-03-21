@@ -204,9 +204,9 @@ class Agent_DQN(Agent):
 
         self.input_folder = yaml_config["paths"]["inputFolder"]
         self.output_folder = yaml_config["paths"]["outputFolder"]
-        self.model_save_name = yaml_config["paths"]["modelSavePath"]
-        self.model_load_name = yaml_config["paths"]["modelLoadPath"]
-        self.analytics_save_name = yaml_config["paths"]["analyticsSavePath"]
+        self.model_save_name = yaml_config["paths"]["modelSaveName"]
+        self.model_load_name = yaml_config["paths"]["modelLoadName"]
+        self.analytics_save_name = yaml_config["paths"]["analyticsSaveName"]
 
         sys.stdout.flush()
 
