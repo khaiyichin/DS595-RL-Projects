@@ -31,7 +31,7 @@ EPSILON_INITIAL = 1.0
 EPSILON_FINAL = 1e-3
 EPSILON_DECAY_DURATION = int(1e4)
 LOG_PERIOD = int(1e5)
-SAVE_INTERVAL = int(1e3) # try 1e4?
+SAVE_INTERVAL = int(1e4) # try 1e4?
 MODEL_SAVE_PATH_0 = './dqn_vanilla_0.pth'
 MODEL_SAVE_PATH_1 = './dqn_vanilla_1.pth'
 ANALYTICS_SAVE_PATH = './analytics.csv'
@@ -99,31 +99,36 @@ class Agent_DQN(Agent):
             device_str = str(self.device)
             device_file.write(device_str)
         
-        # Check to test or load
+        # Check to test or train
         if args.test_dqn:
             #you can load your model here
             print('loading trained model')
             ###########################
             # YOUR IMPLEMENTATION HERE #
             loaded_state_dicts = self.load_model()
-            self.initialize_network(loaded_state_dicts)
+            self.initialize_network(loaded_state_dicts, True)
 
-        elif args.resume_training:
-            if self.logging_enabled:
-                print("\nResuming training.\n")
-                sys.stdout.flush()
-            loaded_state_dicts = self.load_model()
-            self.initialize_network(loaded_state_dicts)
+        else: # train
 
-        else: # start from scratch
-            self.initialize_network()
-                    
-        # Initialize buffers
-        self.replay_buffer_deque = deque(maxlen=REPLAY_BUFFER_SIZE)
-        self.reward_buffer_deque = deque([0.0], maxlen=30)
-        self.avg_30_reward_lst = []
+            # Check to load or start from scratch
+            if args.resume_training:
 
-        self.initialize_replay_buffer() # fill up replay buffer
+                if self.logging_enabled:
+                    print("\nResuming training.\n")
+                    sys.stdout.flush()
+
+                loaded_state_dicts = self.load_model()
+                self.initialize_network(loaded_state_dicts)
+
+            else: # start from scratch
+                self.initialize_network()
+
+            # Initialize buffers
+            self.replay_buffer_deque = deque(maxlen=REPLAY_BUFFER_SIZE)
+            self.reward_buffer_deque = deque([0.0], maxlen=30)
+            self.avg_30_reward_lst = []
+
+            self.initialize_replay_buffer() # fill up replay buffer
             
     def init_game_setting(self):
         """
@@ -147,7 +152,6 @@ class Agent_DQN(Agent):
 
         # Define neural networks
         self.training_nn = DQN(GAMMA).to(self.device) # initialize action-value function Q with random weights theta
-        self.target_nn = DQN(GAMMA).to(self.device)
 
         # Define loss and optimizer
         # self.criterion = torch.nn.CrossEntropyLoss()
@@ -161,11 +165,17 @@ class Agent_DQN(Agent):
             self.training_nn.load_state_dict(loaded_state_dict['model_state_dict'])
             self.optimizer.load_state_dict(loaded_state_dict['optimizer_state_dict'])
             self.criterion = loaded_state_dict['loss']
+            
+            self.training_nn.train() # set the module to be in training mode
 
-        # Set the target network to the same initial parameters as the training/online network
-        self.target_nn.load_state_dict(self.training_nn.state_dict())
+        # Check whether in testing or training mode
+        if test:
+            self.training_nn.eval() # set the module to be in evaluation mode
 
-        if test: self.training_nn.eval()
+        else:
+            # Set the target network to the same initial parameters as the training/online network
+            self.target_nn = DQN(GAMMA).to(self.device)
+            self.target_nn.load_state_dict(self.training_nn.state_dict())
 
     def initialize_replay_buffer(self):
         """Fill up the replay buffer.
