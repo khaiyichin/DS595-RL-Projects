@@ -6,6 +6,10 @@ from collections import deque
 import os
 import sys
 
+## Local imports ##
+from datetime import datetime
+###################
+
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
@@ -20,50 +24,27 @@ torch.manual_seed(595)
 np.random.seed(595)
 random.seed(595)
 
-# Default values (inspired by the Nature paper)
+# Default values
 BATCH_SIZE = 32 # should be 32
-REPLAY_BUFFER_SIZE = int(1e5) # should be 1e5
+REPLAY_BUFFER_SIZE = int(1e5) # units of episodes
 REWARD_BUFFER_SIZE = 30 # units of episodes
-TARGET_Q_NET_UPDATE_PERIOD = int(5e3)
+TARGET_Q_UPDATE_PERIOD = int(5e3) # units of lives (i.e., 5 lives per episode, so units of episodes/5)
 GAMMA = 0.99
 LEARN_RATE = 5e-4
 EPSILON_INITIAL = 1.0
 EPSILON_FINAL = 1e-3
-EPSILON_DECAY_DURATION = int(1e4)
-LOG_PERIOD = int(1e5)
-SAVE_INTERVAL = int(1e4) # try 1e4?
-MODEL_SAVE_PATH_0 = './dqn_vanilla_0.pth'
-MODEL_SAVE_PATH_1 = './dqn_vanilla_1.pth'
-ANALYTICS_SAVE_PATH = './analytics.csv'
-MODEL_LOAD_PATH = './dqn_vanilla.pth'
-"""
-Steps:
-
-1. initialize replay memory capacity
-2. initialize neural network with random weights
-3. for each episode in desired episodes:
-    a. initialize a starting state in the environment
-    b. for each time step in the game:
-        - select an action (via exploration or exploitation)
-        - execute action in the environment
-        - observe the reward and the next state the agent ends up in
-        - store the experience in the replay memory (should be store_experience())
-        - sample the random batch from the replay memory (should be replay_buffer())
-        - preprocess the states from the batch
-        - pass the batch of preprocessed states to the policy (neural) network (the DQN class)
-        - calculate the loss between the output Q values and the target Q values.
-            + requires a second pass to the network for the next state
-        - gradient descent updates weights in the neural network (done internally using)
-"""
+EPSILON_DECAY_DURATION = int(1e4) # units of episodes
+LOG_PERIOD = int(1e4) # units of episodes
+SAVE_INTERVAL = int(5e2) # units of episodes
+INPUT_FOLDER = './'
+OUTPUT_FOLDER = './'
+MODEL_SAVE_NAME = 'dqn_vanilla_save.pth'
+MODEL_LOAD_NAME = 'dqn_vanilla.pth'
+ANALYTICS_SAVE_NAME = 'analytics.csv'
 
 """
 @todos:
-1. deal with args: where do we get them from, what should it contain?
-2. load/save models.
-3. parallel training.
-4. add logs to check if:
-    - gpu is used
-    - how many episodes...?
+1. parallel training.
 """
 
 class Agent_DQN(Agent):
@@ -86,16 +67,43 @@ class Agent_DQN(Agent):
 
         # Define variables for input arguments
         self.logging_enabled = args.logging_enabled or False
-        self.save_path_alternate = 0 # will alternate between 0 and 1
-        self.save_path = [MODEL_SAVE_PATH_0, MODEL_SAVE_PATH_1]
-        self.load_path = MODEL_LOAD_PATH
-        self.analytics_filename = ANALYTICS_SAVE_PATH
+
+        # Check to read input configuration file or use default values
+        if args.config:
+            self.read_yaml_config(args.config)
+
+        else:
+            # Initialize default config values
+            self.batch_size = BATCH_SIZE
+            self.replay_buffer_size = REPLAY_BUFFER_SIZE
+            self.reward_buffer_size = REWARD_BUFFER_SIZE
+            self.target_q_update_period = TARGET_Q_UPDATE_PERIOD
+            self.gamma = GAMMA
+            self.learn_rate = LEARN_RATE
+            self.epsilon_i = EPSILON_INITIAL
+            self.epsilon_f = EPSILON_FINAL
+            self.epsilon_decay_duration = EPSILON_DECAY_DURATION
+            self.log_period = LOG_PERIOD
+            self.save_interval = SAVE_INTERVAL
+
+            self.optimizer_type_str = 'adam' # choice between adam, rmsprop
+
+            self.input_folder = INPUT_FOLDER
+            self.output_folder = OUTPUT_FOLDER
+            self.model_save_name = MODEL_SAVE_NAME
+            self.model_load_name = MODEL_LOAD_NAME
+            self.analytics_save_name = ANALYTICS_SAVE_NAME
+            pass
+
+        # Create output folder if it doesn't exist already
+        if not os.path.exists(self.output_folder):
+            os.makedirs(self.output_folder)
 
         # Prioritize GPU training
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         # Write device type
-        with open ("DEVICE", "w") as device_file:
+        with open (os.path.join(self.output_folder, "DEVICE"), "w") as device_file:
             device_str = str(self.device)
             device_file.write(device_str)
         
@@ -124,12 +132,84 @@ class Agent_DQN(Agent):
                 self.initialize_network()
 
             # Initialize buffers
-            self.replay_buffer_deque = deque(maxlen=REPLAY_BUFFER_SIZE)
-            self.reward_buffer_deque = deque([0.0], maxlen=30)
+            self.replay_buffer_deque = deque(maxlen=self.replay_buffer_size)
+            self.reward_buffer_deque = deque(maxlen=self.reward_buffer_size)
             self.avg_30_reward_lst = []
 
             self.initialize_replay_buffer() # fill up replay buffer
+
+    def read_yaml_config(self, config_file):
+
+        import yaml
+        yaml_config = None
+
+        # Read YAML configuration file
+        with open(config_file, 'r') as fopen:
+            try:
+                yaml_config = yaml.safe_load(fopen)
+            except yaml.YAMLError as exception:
+                print(exception)
+
+        # Display input arguments
+        print('\n\t' + '='*50 + ' Inputs ' + '='*50 + '\n')
+        print('\tConfig file\t: ' + os.path.abspath(config_file))
+        print('\n\t' + '='*48 + ' End Inputs ' + '='*48  + '\n')
+
+        # Displayed processed arguments
+        print('\n\t\t\t\t\t' + '='*15 + ' Processed Config ' + '='*15 + '\n')
+        print('\t\t\t\t\t\t', end='')
+        for line in yaml.dump(yaml_config, indent=4, default_flow_style=False):
+            if line == '\n':
+                print(line, '\t\t\t\t\t\t',  end='')
+            else:
+                print(line, end='')
+        print('\r', end='') # reset the cursor for print
+        print('\n\t\t\t\t\t' + '='*13 + ' End Processed Config ' + '='*13  + '\n')
+
+        # Assign configuration values
+        self.batch_size = int(yaml_config["batchSize"])
+        self.replay_buffer_size = int(yaml_config["bufferSizes"]["replayBuffer"])
+        self.reward_buffer_size = int(yaml_config["bufferSizes"]["rewardBuffer"])
+        self.target_q_update_period = int(yaml_config["targetQUpdatePeriod"])
+        self.gamma = yaml_config["gamma"]
+
+        # Assign optimizer parameters
+        self.optimizer_type_str = yaml_config["optimizer"]["type"].lower()
+        self.learn_rate = yaml_config["optimizer"]["learnRate"]
+
+        if self.optimizer_type_str == "rmsprop":
+            self.gradient_momentum = yaml_config["optimizer"]["gradientMomentum"]
+            self.sq_gradient_momentum = yaml_config["optimizer"]["sqGradientMomentum"]
+            self.min_sq_gradient = yaml_config["optimizer"]["minSqGradient"]
+
+        elif self.optimizer_type_str == "adam":
+            # nothing special for now
+            pass
             
+        elif self.optimizer_type_str == "sgd":
+            self.gradient_momentum = yaml_config["optimizer"]["gradientMomentum"]
+
+        else:
+            print("ERROR: UNKNOWN OPTIMIZER!")
+            exit()
+
+        # Epsilon parameters
+        self.epsilon_i = yaml_config["exploration"]["epsilonInitial"]
+        self.epsilon_f = yaml_config["exploration"]["epsilonFinal"]
+        self.epsilon_decay_duration = int(yaml_config["exploration"]["epsilonDecayDuration"])
+
+        # Logging parameters
+        self.log_period = int(yaml_config["periods"]["logPeriod"])
+        self.save_interval = int(yaml_config["periods"]["saveInterval"])
+
+        self.input_folder = yaml_config["paths"]["inputFolder"]
+        self.output_folder = yaml_config["paths"]["outputFolder"]
+        self.model_save_name = yaml_config["paths"]["modelSavePath"]
+        self.model_load_name = yaml_config["paths"]["modelLoadPath"]
+        self.analytics_save_name = yaml_config["paths"]["analyticsSavePath"]
+
+        sys.stdout.flush()
+
     def init_game_setting(self):
         """
         Testing function will call this function at the begining of new game
@@ -151,21 +231,29 @@ class Agent_DQN(Agent):
         """
 
         # Define neural networks
-        self.training_nn = DQN(GAMMA).to(self.device) # initialize action-value function Q with random weights theta
+        self.training_nn = DQN(self.gamma).to(self.device) # initialize action-value function Q with random weights theta
 
         # Define loss and optimizer
-        # self.criterion = torch.nn.CrossEntropyLoss()
         self.criterion = torch.nn.SmoothL1Loss()
 
-        # self.optimizer = optim.SGD(self.training_nn.parameters(), lr=LEARN_RATE, momentum=MOMENTUM)
-        self.optimizer = optim.Adam(self.training_nn.parameters(), lr=LEARN_RATE)
+        if self.optimizer_type_str == "rmsprop":
+            self.optimizer = optim.RMSprop(self.training_nn.parameters(), lr=self.learn_rate, momentum=self.gradient_momentum, eps=self.min_sq_gradient)
+
+        elif self.optimizer_type_str == "adam":
+            self.optimizer = optim.Adam(self.training_nn.parameters(), lr=self.learn_rate)
+
+        elif self.optimizer_type_str == "sgd":
+            self.optimizer = optim.SGD(self.training_nn.parameters(), lr=self.learn_rate, momentum=self.gradient_momentum)
+
+        else:
+            print("ERROR: UKNOWN OPTIMIZER TYPE = " + self.optimizer_type_str)
 
         # Load the model if present
         if loaded_state_dict:
             self.training_nn.load_state_dict(loaded_state_dict['model_state_dict'])
             self.optimizer.load_state_dict(loaded_state_dict['optimizer_state_dict'])
             self.criterion = loaded_state_dict['loss']
-            
+
             self.training_nn.train() # set the module to be in training mode
 
         # Check whether in testing or training mode
@@ -174,7 +262,7 @@ class Agent_DQN(Agent):
 
         else:
             # Set the target network to the same initial parameters as the training/online network
-            self.target_nn = DQN(GAMMA).to(self.device)
+            self.target_nn = DQN(self.gamma).to(self.device)
             self.target_nn.load_state_dict(self.training_nn.state_dict())
 
     def initialize_replay_buffer(self):
@@ -189,7 +277,7 @@ class Agent_DQN(Agent):
         observation = self.env.reset()
 
         # Make the agent play the game
-        for _ in range(REPLAY_BUFFER_SIZE):
+        for _ in range(self.replay_buffer_size):
 
             # Pick and execute action
             action = self.env.action_space.sample()
@@ -277,7 +365,7 @@ class Agent_DQN(Agent):
         while True:
 
             # Adjust epsilon to modify tendency for exploration vs exploitation
-            epsilon = np.interp(episode_counter-1, [0, EPSILON_DECAY_DURATION], [EPSILON_INITIAL, EPSILON_FINAL])
+            epsilon = np.interp(episode_counter-1, [0, self.epsilon_decay_duration], [self.epsilon_i, self.epsilon_f])
 
             episode_reward = 0.0
 
@@ -312,10 +400,7 @@ class Agent_DQN(Agent):
                 """
                 # Gradient stepd
                 # Randomly sample batches of experiences
-                rnd_exp_tup_lst = self.sample_stored_experiences(BATCH_SIZE)
-
-                # @todo: need to figure out the data format here
-                # is the shape (batch_size, c, h, w)???
+                rnd_exp_tup_lst = self.sample_stored_experiences(self.batch_size)
 
                 # Parse sampled experiences
                 rnd_observations = np.asarray([tup[0] for tup in rnd_exp_tup_lst])
@@ -343,10 +428,10 @@ class Agent_DQN(Agent):
                 torch.nn.utils.clip_grad_value_(self.training_nn.parameters(), 1) # clip gradients                
                 self.optimizer.step()
             
-            self.reward_buffer_deque.append(episode_reward) # accumulate all rewards in one life
+            self.reward_buffer_deque.append(episode_reward) # accumulate all rewards in one episode
 
-            # Update target network parameters to 'catch up'
-            if episode_counter % TARGET_Q_NET_UPDATE_PERIOD == 0:
+            # Update target network parameters to 'catch up' (consider each life as one 'cycle')
+            if episode_counter*5 % self.target_q_update_period == 0:
                 self.target_nn.load_state_dict(self.training_nn.state_dict())
 
             # Compute the 30-episode averaged reward
@@ -355,14 +440,14 @@ class Agent_DQN(Agent):
                 self.avg_30_reward_lst.append(self.most_recent_avg_30_reward)
                 
             # Log training performance
-            if episode_counter % LOG_PERIOD == 0 and self.logging_enabled:
+            if episode_counter % self.log_period == 0 and self.logging_enabled:
                 print("Episode:", episode_counter)
-                print("Last 30-episode averaged reward:", self.most_recent_avg_30_reward) # @todo: is this right? it only computes the mean for the length of available rewards...
+                print("Last 30-episode averaged reward:", self.most_recent_avg_30_reward)
                 sys.stdout.flush()
 
             # Save data every interval
-            if episode_counter % SAVE_INTERVAL == 0:
-                self.save_model()
+            if episode_counter % self.save_interval == 0:
+                self.save_model(episode_counter)
                 self.save_analytics()
 
             episode_counter += 1 # update counter
@@ -391,29 +476,33 @@ class Agent_DQN(Agent):
 
         return obs
 
-    def save_model(self):
+    def save_model(self, curr_episode_num):
         """Save Q-value neural network model.
         """
-        
-        # Alternate save path to prevent corrupted saves
-        self.save_path_alternate = 1 - self.save_path_alternate
+
+        # Add time and episode information to filename
+        curr_time = datetime.now()
+
+        split_path = os.path.splitext(os.path.join(self.output_folder, self.model_save_name))
+
+        model_save_path = split_path[0] + "_eps" + str(curr_episode_num) + "_" + curr_time.strftime("%m%d%y_%H%M") + split_path[1]
 
         torch.save({
             'model_state_dict': self.training_nn.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'loss': self.criterion,
-        }, self.save_path[self.save_path_alternate])
+        }, model_save_path)
 
     def load_model(self):
         """Load trained Q-value neural network model
         """
 
-        return torch.load(self.load_path, map_location=self.device)
+        return torch.load( os.path.join(self.input_folder, self.model_load_name), map_location=self.device )
 
     def save_analytics(self):
         
         # Write to file then clear buffer
-        with open (self.analytics_filename, "a") as a_file:
+        with open (os.path.join(self.output_folder, self.analytics_save_name), "a") as a_file:
             str_lst = [str(i) + "\n" for i in self.avg_30_reward_lst]
             a_file.writelines(str_lst)
             self.avg_30_reward_lst = []
