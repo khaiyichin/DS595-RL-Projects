@@ -110,6 +110,8 @@ class Agent_DQN(Agent):
         with open (os.path.join(self.output_folder, "DEVICE"), "w") as device_file:
             device_str = str(self.device)
             device_file.write(device_str)
+            if torch.cuda.is_available():
+                device_file.write(str(torch.cuda.get_device_name(0)))
         
         # Check to test or train
         if args.test_dqn:
