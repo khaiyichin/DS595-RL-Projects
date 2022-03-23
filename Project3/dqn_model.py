@@ -17,7 +17,7 @@ class DQN(nn.Module):
     This is just a hint. You can build your own structure.
     """
 
-    def __init__(self, gamma, in_channels=4, num_actions=4):
+    def __init__(self, gamma, ddqn=False, in_channels=4, num_actions=4):
         """
         Parameters:
         -----------
@@ -37,6 +37,7 @@ class DQN(nn.Module):
 
         # Define variables for input arguments
         self.gamma = gamma
+        self.ddqn = ddqn
 
         self.in_channels = in_channels
         self.num_actions = num_actions
@@ -89,9 +90,31 @@ class DQN(nn.Module):
         obs, act, rew, done, next_obs = tensor_lst
 
         # Compute targets
-        next_state_target_q_vals = target_network(next_obs)
-        max_target_q_vals = next_state_target_q_vals.max(dim=1, keepdim=True)[0]
-        target_q_vals = rew + self.gamma*(1-done)*max_target_q_vals # condensed piecewise function from the Nature paper
+        with torch.no_grad():
+            if self.ddqn:
+
+                # Get the Q values for the next state using the training/online network
+                next_state_training_q_vals = self(next_obs)
+
+                # Get the action that gives the maximum Q value for the next state (based on the online network)
+                max_training_q_vals_ind = next_state_training_q_vals.argmax(dim=1, keepdim=True)
+
+                # Get the Q values for the next state using the target network
+                next_state_target_q_vals = target_network(next_obs)
+
+                # Get the maximum Q value (obtained from the target network) based on the action (from the online network)
+                max_target_q_vals = torch.gather(input=next_state_target_q_vals, dim=1, index=max_training_q_vals_ind)
+
+                target_q_vals = rew + self.gamma*(1-done)*max_target_q_vals
+            else:
+
+                # Get the Q values for the next state using the target network
+                next_state_target_q_vals = target_network(next_obs)
+
+                # Get the max Q value for the next state with respect to all the actions
+                max_target_q_vals = next_state_target_q_vals.max(dim=1, keepdim=True)[0]
+
+                target_q_vals = rew + self.gamma*(1-done)*max_target_q_vals # condensed piecewise function from the Nature paper
 
         # Compute Q-values based on actual actions
         q_vals = self(obs) # size of 32 x 4

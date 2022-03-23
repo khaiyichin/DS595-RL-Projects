@@ -25,6 +25,7 @@ np.random.seed(595)
 random.seed(595)
 
 # Default values
+DOUBLE_DQN = False
 BATCH_SIZE = 32 # should be 32
 REPLAY_BUFFER_SIZE = int(1e5) # units of episodes
 REWARD_BUFFER_SIZE = 30 # units of episodes
@@ -41,6 +42,7 @@ OUTPUT_FOLDER = './'
 MODEL_SAVE_NAME = 'dqn_vanilla_save.pth'
 MODEL_LOAD_NAME = 'dqn_vanilla.pth'
 ANALYTICS_SAVE_NAME = 'analytics.csv'
+REWARD_LOG_SAVE_NAME = 'reward_log.csv'
 
 """
 @todos:
@@ -74,6 +76,7 @@ class Agent_DQN(Agent):
 
         else:
             # Initialize default config values
+            self.double_dqn = DOUBLE_DQN
             self.batch_size = BATCH_SIZE
             self.replay_buffer_size = REPLAY_BUFFER_SIZE
             self.reward_buffer_size = REWARD_BUFFER_SIZE
@@ -93,6 +96,7 @@ class Agent_DQN(Agent):
             self.model_save_name = MODEL_SAVE_NAME
             self.model_load_name = MODEL_LOAD_NAME
             self.analytics_save_name = ANALYTICS_SAVE_NAME
+            self.reward_log_save_name = REWARD_LOG_SAVE_NAME
             pass
 
         # Create output folder if it doesn't exist already
@@ -135,6 +139,7 @@ class Agent_DQN(Agent):
             self.replay_buffer_deque = deque(maxlen=self.replay_buffer_size)
             self.reward_buffer_deque = deque(maxlen=self.reward_buffer_size)
             self.avg_30_reward_lst = []
+            self.reward_log = []
 
             self.initialize_replay_buffer() # fill up replay buffer
 
@@ -167,6 +172,7 @@ class Agent_DQN(Agent):
         print('\n\t\t\t\t\t' + '='*13 + ' End Processed Config ' + '='*13  + '\n')
 
         # Assign configuration values
+        self.double_dqn = yaml_config["doubleDQN"]
         self.batch_size = int(yaml_config["batchSize"])
         self.replay_buffer_size = int(yaml_config["bufferSizes"]["replayBuffer"])
         self.reward_buffer_size = int(yaml_config["bufferSizes"]["rewardBuffer"])
@@ -207,6 +213,7 @@ class Agent_DQN(Agent):
         self.model_save_name = yaml_config["paths"]["modelSaveName"]
         self.model_load_name = yaml_config["paths"]["modelLoadName"]
         self.analytics_save_name = yaml_config["paths"]["analyticsSaveName"]
+        self.reward_log_save_name = yaml_config["paths"]["rewardLogSaveName"]
 
         sys.stdout.flush()
 
@@ -231,7 +238,7 @@ class Agent_DQN(Agent):
         """
 
         # Define neural networks
-        self.training_nn = DQN(self.gamma).to(self.device) # initialize action-value function Q with random weights theta
+        self.training_nn = DQN(self.gamma, self.double_dqn).to(self.device) # initialize action-value function Q with random weights theta
 
         # Define loss and optimizer
         self.criterion = torch.nn.SmoothL1Loss()
@@ -262,7 +269,7 @@ class Agent_DQN(Agent):
 
         else:
             # Set the target network to the same initial parameters as the training/online network
-            self.target_nn = DQN(self.gamma).to(self.device)
+            self.target_nn = DQN(self.gamma, self.double_dqn).to(self.device)
             self.target_nn.load_state_dict(self.training_nn.state_dict())
 
     def initialize_replay_buffer(self):
@@ -429,6 +436,7 @@ class Agent_DQN(Agent):
                 self.optimizer.step()
             
             self.reward_buffer_deque.append(episode_reward) # accumulate all rewards in one episode
+            self.reward_log.append(episode_reward)
 
             # Update target network parameters to 'catch up' (consider each life as one 'cycle')
             if episode_counter*5 % self.target_q_update_period == 0:
@@ -506,3 +514,8 @@ class Agent_DQN(Agent):
             str_lst = [str(i) + "\n" for i in self.avg_30_reward_lst]
             a_file.writelines(str_lst)
             self.avg_30_reward_lst = []
+
+        with open(os.path.join(self.output_folder, self.reward_log_save_name), "a") as r_file:
+            str_lst = [str(i) + "\n" for i in self.reward_log]
+            r_file.writelines(str_lst)
+            self.reward_log = []
