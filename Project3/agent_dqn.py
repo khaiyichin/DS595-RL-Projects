@@ -109,9 +109,9 @@ class Agent_DQN(Agent):
         # Write device type
         with open (os.path.join(self.output_folder, "DEVICE"), "w") as device_file:
             device_str = str(self.device)
-            device_file.write(device_str)
+            device_file.write(device_str + '\n')
             if torch.cuda.is_available():
-                device_file.write(str(torch.cuda.get_device_name(0)))
+                device_file.write(str(torch.cuda.get_device_name(0)) + '\n')
         
         # Check to test or train
         if args.test_dqn:
@@ -128,7 +128,7 @@ class Agent_DQN(Agent):
             if args.resume_training:
 
                 if self.logging_enabled:
-                    print("\nResuming training.\n")
+                    print("\nResuming training using", os.path.join(self.input_folder, self.model_load_name), "\n")
                     sys.stdout.flush()
 
                 loaded_state_dicts = self.load_model()
@@ -259,11 +259,20 @@ class Agent_DQN(Agent):
 
         # Load the model if present
         if loaded_state_dict:
+
+            if self.logging_enabled:
+                print("Loading model... ", end="")
+                sys.stdout.flush()
+
             self.training_nn.load_state_dict(loaded_state_dict['model_state_dict'])
             self.optimizer.load_state_dict(loaded_state_dict['optimizer_state_dict'])
             self.criterion = loaded_state_dict['loss']
 
             self.training_nn.train() # set the module to be in training mode
+
+            if self.logging_enabled:
+                print("Done!\n")
+                sys.stdout.flush()
 
         # Check whether in testing or training mode
         if test:
@@ -279,7 +288,7 @@ class Agent_DQN(Agent):
         """
 
         if self.logging_enabled:
-            print('Initializing replay buffer...', end='')
+            print("Initializing replay buffer... ", end="")
             sys.stdout.flush()
 
         # Start the environment
@@ -300,7 +309,7 @@ class Agent_DQN(Agent):
             else: observation = next_observation
 
         if self.logging_enabled:
-            print('Done!\n')
+            print("Done!\n")
             sys.stdout.flush()
 
     def make_action(self, observation, test=True):
