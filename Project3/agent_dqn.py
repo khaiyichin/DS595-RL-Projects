@@ -34,8 +34,12 @@ LEARN_RATE = 5e-4
 EPSILON_INITIAL = 1.0
 EPSILON_FINAL = 1e-3
 EPSILON_DECAY_DURATION = int(1e4) # units of episodes
-LOG_PERIOD = int(1e4) # units of episodes
-SAVE_INTERVAL = int(5e2) # units of episodes
+LOG_PERIOD_INITIAL = int(1e4) # units of episodes
+LOG_PERIOD_FINAL = int(1e4) # units of episodes
+LOG_PERIOD_DIM_FACTOR = int(2) # diminishing factor, i.e., divisor
+SAVE_INTERVAL_INITIAL = int(5e2) # units of episodes
+SAVE_INTERVAL_FINAL = int(5e2) # units of episodes
+SAVE_INTERVAL_DIM_FACTOR = int(2) # diminishing factor, i.e., divisor
 INPUT_FOLDER = './'
 OUTPUT_FOLDER = './'
 MODEL_SAVE_NAME = 'dqn_vanilla_save.pth'
@@ -83,8 +87,12 @@ class Agent_DQN(Agent):
             self.epsilon_i = EPSILON_INITIAL
             self.epsilon_f = EPSILON_FINAL
             self.epsilon_decay_duration = EPSILON_DECAY_DURATION
-            self.log_period = LOG_PERIOD
-            self.save_interval = SAVE_INTERVAL
+            self.log_period_initial = LOG_PERIOD_INITIAL
+            self.log_period_final = LOG_PERIOD_FINAL
+            self.log_period_dim_factor = LOG_PERIOD_DIM_FACTOR
+            self.save_interval_initial = SAVE_INTERVAL_INITIAL
+            self.save_interval_final = SAVE_INTERVAL_FINAL
+            self.save_interval_dim_factor = SAVE_INTERVAL_DIM_FACTOR
 
             self.optimizer_type_str = 'adam' # choice between adam, rmsprop
 
@@ -94,6 +102,10 @@ class Agent_DQN(Agent):
             self.model_load_name = MODEL_LOAD_NAME
             self.analytics_save_name = ANALYTICS_SAVE_NAME
             pass
+
+        # Initialize periods
+        self.log_period = self.log_period_initial
+        self.save_interval = self.save_interval_initial
 
         # Create output folder if it doesn't exist already
         if not os.path.exists(self.output_folder):
@@ -200,10 +212,23 @@ class Agent_DQN(Agent):
         self.epsilon_f = yaml_config["exploration"]["epsilonFinal"]
         self.epsilon_decay_duration = int(yaml_config["exploration"]["epsilonDecayDuration"])
 
-        # Logging parameters
-        self.log_period = int(yaml_config["periods"]["logPeriod"])
-        self.save_interval = int(yaml_config["periods"]["saveInterval"])
+        # Logging and saving parameters
+        self.log_period_initial = int(yaml_config["periods"]["logPeriodInitial"])
+        self.log_period_final = int(yaml_config["periods"]["logPeriodFinal"])
+        self.log_period_dim_factor = int(yaml_config["periods"]["logPeriodDimFactor"])
+        self.save_interval_initial = int(yaml_config["periods"]["saveIntervalInitial"])
+        self.save_interval_final = int(yaml_config["periods"]["saveIntervalFinal"])
+        self.save_interval_dim_factor = int(yaml_config["periods"]["saveIntervalDimFactor"])
 
+        if self.log_period_dim_factor < 1 or self.save_interval_dim_factor < 1:
+            print("ERROR: Diminishing factor must be >= 1!")
+            exit()
+
+        if self.log_period_final > self.log_period_initial or self.save_interval_final > self.save_interval_initial:
+            print("ERROR: Final period/interval values must be smaller than the initial values!")
+            exit()
+
+        # Path parameters
         self.input_folder = yaml_config["paths"]["inputFolder"]
         self.output_folder = yaml_config["paths"]["outputFolder"]
         self.model_save_name = yaml_config["paths"]["modelSaveName"]
@@ -452,14 +477,31 @@ class Agent_DQN(Agent):
                 
             # Log training performance
             if episode_counter % self.log_period == 0 and self.logging_enabled:
-                print("Episode:", episode_counter)
-                print("Last 30-episode averaged reward:", self.most_recent_avg_30_reward)
+                print("\nEpisode:", episode_counter)
+                print("Loss:", loss.item())
+                try: print("Last 30-episode averaged reward:", self.most_recent_avg_30_reward)
+                except: pass
+
                 sys.stdout.flush()
+
+                # Reduce frequency of log output
+                if self.log_period > self.log_period_final:
+                    self.log_period = int(self.log_period / self.log_period_dim_factor)
+
+                    # Ensure that the final log period is the minimum specified value
+                    if self.log_period < self.log_period_final: self.log_period = self.log_period_final
 
             # Save data every interval
             if episode_counter % self.save_interval == 0:
                 self.save_model(episode_counter)
                 self.save_analytics()
+
+                # Reduce frequency of save interval
+                if self.save_interval > self.save_interval_final:
+                    self.save_interval = int(self.save_interval / self.save_interval_dim_factor)
+
+                    # Ensure that the final save interval is the minimum specified value
+                    if self.save_interval < self.save_interval_final: self.save_interval = self.save_interval_final
 
             episode_counter += 1 # update counter
         
@@ -512,8 +554,9 @@ class Agent_DQN(Agent):
 
     def save_analytics(self):
         
-        # Write to file then clear buffer
-        with open (os.path.join(self.output_folder, self.analytics_save_name), "a") as a_file:
-            str_lst = [str(i) + "\n" for i in self.avg_30_reward_lst]
-            a_file.writelines(str_lst)
-            self.avg_30_reward_lst = []
+        # Write to file (if list is populated) then clear buffer
+        if self.avg_30_reward_lst:
+            with open (os.path.join(self.output_folder, self.analytics_save_name), "a") as a_file:
+                str_lst = [str(i) + "\n" for i in self.avg_30_reward_lst]
+                a_file.writelines(str_lst)
+                self.avg_30_reward_lst = []
