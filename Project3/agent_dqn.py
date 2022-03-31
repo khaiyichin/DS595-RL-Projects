@@ -379,7 +379,7 @@ class Agent_DQN(Agent):
         observation = self.env.reset()
         episode_counter = 1
 
-        # Run the episode for as long as we can
+        # Run as many episodes for as long as we can
         while True:
 
             # Adjust epsilon to modify tendency for exploration vs exploitation
@@ -387,11 +387,10 @@ class Agent_DQN(Agent):
 
             episode_reward = 0.0
 
-            # Play the game until all lives are used up
-            lives_counter = 5 # only 5 lives
+            done = False
 
-            while lives_counter > 0:
-
+            # Play the game for 1 life
+            while not done:
                 # Select epsilon-greedy action
                 if np.random.rand() <= epsilon:
                     action = self.env.action_space.sample()
@@ -410,7 +409,6 @@ class Agent_DQN(Agent):
 
                 if done:
                     observation = self.env.reset()
-                    lives_counter -= 1
                 else: observation = next_observation
 
                 """
@@ -438,14 +436,14 @@ class Agent_DQN(Agent):
                             rnd_rewards_tensor,
                             rnd_dones_tensor,
                             rnd_next_observations_tensor]
-                            
+
                 # Update training network
-                self.optimizer.zero_grad() # set gradients to zero                
-                loss = self.training_nn.compute_loss(tensor_lst, self.target_nn, self.criterion) # compute loss                
-                loss.backward() # backpropogate weights                
-                torch.nn.utils.clip_grad_value_(self.training_nn.parameters(), 1) # clip gradients                
+                self.optimizer.zero_grad() # set gradients to zero
+                loss = self.training_nn.compute_loss(tensor_lst, self.target_nn, self.criterion) # compute loss
+                loss.backward() # backpropogate weights
+                torch.nn.utils.clip_grad_value_(self.training_nn.parameters(), 1) # clip gradients
                 self.optimizer.step()
-            
+
             self.reward_buffer_deque.append(episode_reward) # accumulate all rewards in one episode
             self.reward_log.append(episode_reward)
 
