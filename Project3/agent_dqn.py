@@ -29,7 +29,7 @@ DOUBLE_DQN = False
 BATCH_SIZE = 32 # should be 32
 REPLAY_BUFFER_SIZE = int(1e5) # units of episodes
 REWARD_BUFFER_SIZE = 30 # units of episodes
-TARGET_Q_UPDATE_PERIOD = int(5e3) # units of lives (i.e., 5 lives per episode, so units of episodes/5)
+TARGET_Q_UPDATE_PERIOD = int(5e3) # units of episodes
 GAMMA = 0.99
 LEARN_RATE = 5e-4
 EPSILON_INITIAL = 1.0
@@ -472,8 +472,8 @@ class Agent_DQN(Agent):
             self.reward_buffer_deque.append(episode_reward) # accumulate all rewards in one episode
             self.reward_log.append(episode_reward)
 
-            # Update target network parameters to 'catch up' (consider each life as one 'cycle')
-            if episode_counter*5 % self.target_q_update_period == 0:
+            # Update target network parameters to 'catch up'
+            if episode_counter % self.target_q_update_period == 0:
                 self.target_nn.load_state_dict(self.training_nn.state_dict())
 
             # Compute the 30-episode averaged reward
