@@ -17,7 +17,6 @@ def eval_model(args, model_filename):
     # Return rewards for current model name
     return [model_filename, obtain_rewards(agent, env, total_episodes=100)]
 
-
 def run(args):
     if args.test_dqn: # this is mostly to ensure that the variable exist so that it will be used in AgentDQN
 

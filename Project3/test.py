@@ -37,6 +37,7 @@ def test(agent, env, total_episodes=30):
             action = agent.make_action(state, test=True)
             state, reward, done, info = env.step(action)
             episode_reward += reward
+            env.env.render()
 
         rewards.append(episode_reward)
     print('Run %d episodes'%(total_episodes))
