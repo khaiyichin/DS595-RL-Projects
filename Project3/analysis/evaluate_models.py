@@ -4,6 +4,18 @@ from environment import Environment
 import numpy as np
 import argparse
 from agent_dqn import Agent_DQN
+from joblib import Parallel, delayed
+import timeit
+
+def eval_model(args, model_filename):
+
+    env = Environment('BreakoutNoFrameskip-v4', args, atari_wrapper=True, test=True)
+
+    args.test_model_file_path = model_filename
+    agent = Agent_DQN(env, args)
+
+    # Return rewards for current model name
+    return [model_filename, obtain_rewards(agent, env, total_episodes=100)]
 
 def run(args):
     if args.test_dqn: # this is mostly to ensure that the variable exist so that it will be used in AgentDQN

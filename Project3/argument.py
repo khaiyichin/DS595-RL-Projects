@@ -10,5 +10,6 @@ def add_arguments(parser):
     parser.add_argument('--logging_enabled', action='store_true', help='learning rate for training')
     parser.add_argument('--resume_training', action='store_true', help='whether to resume training based on a hardcoded saved model path')
     parser.add_argument('--config', type=str, help='path to .yaml config file')
+    parser.add_argument('--test_model_file_path', type=str, default='test_model.pth', help='path to .pth model file for testing')
 
     return parser
