@@ -1,6 +1,5 @@
 import glob, os
 import pandas as pd
-import matplotlib.pyplot as plt
 from environment import Environment
 import numpy as np
 import argparse
