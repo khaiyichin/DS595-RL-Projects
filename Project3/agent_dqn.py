@@ -48,11 +48,6 @@ MODEL_LOAD_NAME = 'dqn_vanilla.pth'
 ANALYTICS_SAVE_NAME = 'analytics.csv'
 REWARD_LOG_SAVE_NAME = 'reward_log.csv'
 
-"""
-@todos:
-1. parallel training.
-"""
-
 class Agent_DQN(Agent):
     def __init__(self, env, args):
         """
@@ -131,7 +126,7 @@ class Agent_DQN(Agent):
             print('loading trained model')
             ###########################
             # YOUR IMPLEMENTATION HERE #
-            loaded_state_dicts = self.load_model()
+            loaded_state_dicts = self.load_model(args.test_model_file_path)
             self.initialize_network(loaded_state_dicts, True)
 
         else: # train
@@ -554,11 +549,13 @@ class Agent_DQN(Agent):
             'loss': self.criterion,
         }, model_save_path)
 
-    def load_model(self):
+    def load_model(self, test_model_file=None):
         """Load trained Q-value neural network model
         """
-
-        return torch.load( os.path.join(self.input_folder, self.model_load_name), map_location=self.device )
+        if test_model_file:
+            return torch.load( test_model_file, map_location=self.device )
+        else:
+            return torch.load( os.path.join(self.input_folder, self.model_load_name), map_location=self.device )
 
     def save_analytics(self):
         
