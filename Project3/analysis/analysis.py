@@ -3,22 +3,27 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
 from natsort import natsorted
+import numpy as np
 
 # Import reward_log
 
 def plot_reward_log(args):
     
-    reward_log_data = pd.DataFrame()
+    reward_log_data = [] # for some fucking reason pandas concat is being a fucking bitch adding fucking nan fucking columns
 
     for f in natsorted( glob.glob( os.path.join(args.input_folder, 'reward_log*') ) ):
-        if reward_log_data.empty:
-            reward_log_data = pd.read_csv(f,header=0)
+        if len(reward_log_data) == 0:
+            temp = pd.read_csv(f,header=0)
+            reward_log_data = temp.to_numpy()
         else:
-            pd.concat([reward_log_data, pd.read_csv(f,header=0)], ignore_index=True)
+            temp = pd.read_csv(f,header=0)
+            reward_log_data = np.vstack( (reward_log_data,temp.to_numpy()) )
+
+    x = list(range(1, len(reward_log_data)*5, 5))
 
     fig = plt.figure()
-    fig.set_size_inches(14, 9)
-    plt.plot(reward_log_data)
+    fig.set_size_inches(6, 4)
+    plt.plot(x, reward_log_data)
     plt.xlabel('Episodes')
     plt.ylabel('Score')
     plt.minorticks_on()
@@ -30,10 +35,10 @@ def plot_30_avg_reward(args):
     
     f = glob.glob( os.path.join(args.input_folder, 'analytics*') )[0]    
     analytics_30 = pd.read_csv(f,header=0)
-    x = list(range(1, len(analytics_30)*30, 30))
+    x = list(range(1, len(analytics_30)*30*5, 30*5))
     
     fig = plt.figure()
-    fig.set_size_inches(14, 9)
+    fig.set_size_inches(6, 4)
     plt.plot( x, analytics_30.iloc[:,0] )
     plt.xlabel('Episodes')
     plt.ylabel('Average score')
